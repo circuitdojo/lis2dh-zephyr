@@ -53,7 +53,8 @@ static int lis2dh_channel_get(const struct device *dev,
 	struct lis2dh_data *lis2dh = dev->data;
 	int ofs_start;
 	int ofs_end;
-	int i;
+	int i, y;
+	int iterate_count = 1;
 
 	switch (chan) {
 	case SENSOR_CHAN_ACCEL_X:
@@ -65,15 +66,24 @@ static int lis2dh_channel_get(const struct device *dev,
 	case SENSOR_CHAN_ACCEL_Z:
 		ofs_start = ofs_end = 2;
 		break;
+	case (int)LIS2DH_SENSOR_CHAN_FIFO:
+		iterate_count = LIS2DH_FIFO_COUNT;
 	case SENSOR_CHAN_ACCEL_XYZ:
+
 		ofs_start = 0;
 		ofs_end = 2;
 		break;
 	default:
 		return -ENOTSUP;
 	}
-	for (i = ofs_start; i <= ofs_end; i++, val++) {
-		lis2dh_convert(lis2dh->sample.xyz[i], lis2dh->scale, val);
+
+	/* Loop each entry */
+	for (y = 0; y < iterate_count; y++)
+	{
+		for (i = ofs_start; i <= ofs_end; i++, val++)
+		{
+			lis2dh_convert(lis2dh->sample.xyz[y][i], lis2dh->scale, val);
+		}
 	}
 
 	return 0;
@@ -84,24 +94,36 @@ static int lis2dh_sample_fetch(const struct device *dev,
 {
 	struct lis2dh_data *lis2dh = dev->data;
 	size_t i;
+	int sample_size = LIS2DH_BUF_SINGLE_SZ;
+	int mult = 1;
 	int status;
 
 	__ASSERT_NO_MSG(chan == SENSOR_CHAN_ALL ||
-			chan == SENSOR_CHAN_ACCEL_XYZ);
+					chan == SENSOR_CHAN_ACCEL_XYZ ||
+					chan == (int)LIS2DH_SENSOR_CHAN_FIFO);
+
+	/* Set sample size larger if FIFO.. */
+	if (chan == (int)LIS2DH_SENSOR_CHAN_FIFO)
+		sample_size = sizeof(lis2dh->sample.raw);
 
 	/*
 	 * since status and all accel data register addresses are consecutive,
 	 * a burst read can be used to read all the samples
 	 */
 	status = lis2dh->hw_tf->read_data(dev, LIS2DH_REG_STATUS,
-					  lis2dh->sample.raw,
-					  sizeof(lis2dh->sample.raw));
+									  lis2dh->sample.raw,
+									  sample_size);
 	if (status < 0) {
 		LOG_WRN("Could not read accel axis data");
 		return status;
 	}
 
-	for (i = 0; i < (3 * sizeof(int16_t)); i += sizeof(int16_t)) {
+	/* Handle for FIFO */
+	if (chan == (int)LIS2DH_SENSOR_CHAN_FIFO)
+		mult = LIS2DH_FIFO_COUNT;
+
+	/* Orient data correctly */
+	for (i = 0; i < (3 * mult * sizeof(int16_t)); i += sizeof(int16_t)) {
 		int16_t *sample =
 			(int16_t *)&lis2dh->sample.raw[1 + i];
 
@@ -115,7 +137,7 @@ static int lis2dh_sample_fetch(const struct device *dev,
 	return -ENODATA;
 }
 
-#ifdef CONFIG_LIS2DH_ODR_RUNTIME
+#ifdef CONFIG_LIS2DH_ENHANCED_ODR_RUNTIME
 /* 1620 & 5376 are low power only */
 static const uint16_t lis2dh_odr_map[] = {0, 1, 10, 25, 50, 100, 200, 400, 1620,
 				       1344, 5376};
@@ -172,7 +194,7 @@ static int lis2dh_acc_odr_set(const struct device *dev, uint16_t freq)
 }
 #endif
 
-#ifdef CONFIG_LIS2DH_ACCEL_RANGE_RUNTIME
+#ifdef CONFIG_LIS2DH_ENHANCED_ACCEL_RANGE_RUNTIME
 
 #define LIS2DH_RANGE_IDX_TO_VALUE(idx)		(1 << ((idx) + 1))
 #define LIS2DH_NUM_RANGES			4
@@ -214,15 +236,15 @@ static int lis2dh_acc_config(const struct device *dev,
 			     const struct sensor_value *val)
 {
 	switch (attr) {
-#ifdef CONFIG_LIS2DH_ACCEL_RANGE_RUNTIME
+#ifdef CONFIG_LIS2DH_ENHANCED_ACCEL_RANGE_RUNTIME
 	case SENSOR_ATTR_FULL_SCALE:
 		return lis2dh_acc_range_set(dev, sensor_ms2_to_g(val));
 #endif
-#ifdef CONFIG_LIS2DH_ODR_RUNTIME
+#ifdef CONFIG_LIS2DH_ENHANCED_ODR_RUNTIME
 	case SENSOR_ATTR_SAMPLING_FREQUENCY:
 		return lis2dh_acc_odr_set(dev, val->val1);
 #endif
-#if defined(CONFIG_LIS2DH_TRIGGER)
+#if defined(CONFIG_LIS2DH_ENHANCED_TRIGGER)
 	case SENSOR_ATTR_SLOPE_TH:
 	case SENSOR_ATTR_SLOPE_DUR:
 		return lis2dh_acc_slope_config(dev, attr, val);
@@ -255,7 +277,7 @@ static int lis2dh_attr_set(const struct device *dev, enum sensor_channel chan,
 
 static const struct sensor_driver_api lis2dh_driver_api = {
 	.attr_set = lis2dh_attr_set,
-#if CONFIG_LIS2DH_TRIGGER
+#if CONFIG_LIS2DH_ENHANCED_TRIGGER
 	.trigger_set = lis2dh_trigger_set,
 #endif
 	.sample_fetch = lis2dh_sample_fetch,
@@ -332,7 +354,7 @@ int lis2dh_init(const struct device *dev)
 		return status;
 	}
 
-#ifdef CONFIG_LIS2DH_TRIGGER
+#ifdef CONFIG_LIS2DH_ENHANCED_TRIGGER
 	if (cfg->gpio_drdy.port != NULL || cfg->gpio_int.port != NULL) {
 		status = lis2dh_init_interrupt(dev);
 		if (status < 0) {
@@ -419,7 +441,7 @@ int lis2dh_init(const struct device *dev)
 		.cs_gpios_label = LIS2DH_SPI_CS_LABEL(inst),		\
 	})
 
-#ifdef CONFIG_LIS2DH_TRIGGER
+#ifdef CONFIG_LIS2DH_ENHANCED_TRIGGER
 #define GPIO_DT_SPEC_INST_GET_BY_IDX_COND(id, prop, idx)		\
 	COND_CODE_1(DT_INST_PROP_HAS_IDX(id, prop, idx),		\
 		    (GPIO_DT_SPEC_INST_GET_BY_IDX(id, prop, idx)),	\
@@ -432,7 +454,7 @@ int lis2dh_init(const struct device *dev)
 	    GPIO_DT_SPEC_INST_GET_BY_IDX_COND(inst, irq_gpios, 1),
 #else
 #define LIS2DH_CFG_INT(inst)
-#endif /* CONFIG_LIS2DH_TRIGGER */
+#endif /* CONFIG_LIS2DH_ENHANCED_TRIGGER */
 
 #define LIS2DH_CONFIG_SPI(inst)						\
 	{								\

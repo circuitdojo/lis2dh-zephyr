@@ -64,9 +64,9 @@ static int lis2dh_trigger_drdy_set(const struct device *dev,
 	 * and first interrupt. this avoids concurrent bus context access.
 	 */
 	atomic_set_bit(&lis2dh->trig_flags, START_TRIG_INT1);
-#if defined(CONFIG_LIS2DH_TRIGGER_OWN_THREAD)
+#if defined(CONFIG_LIS2DH_ENHANCED_TRIGGER_OWN_THREAD)
 	k_sem_give(&lis2dh->gpio_sem);
-#elif defined(CONFIG_LIS2DH_TRIGGER_GLOBAL_THREAD)
+#elif defined(CONFIG_LIS2DH_ENHANCED_TRIGGER_GLOBAL_THREAD)
 	k_work_submit(&lis2dh->work);
 #endif
 
@@ -167,9 +167,9 @@ static int lis2dh_trigger_anym_set(const struct device *dev,
 	 * and first interrupt. this avoids concurrent bus context access.
 	 */
 	atomic_set_bit(&lis2dh->trig_flags, START_TRIG_INT2);
-#if defined(CONFIG_LIS2DH_TRIGGER_OWN_THREAD)
+#if defined(CONFIG_LIS2DH_ENHANCED_TRIGGER_OWN_THREAD)
 	k_sem_give(&lis2dh->gpio_sem);
-#elif defined(CONFIG_LIS2DH_TRIGGER_GLOBAL_THREAD)
+#elif defined(CONFIG_LIS2DH_ENHANCED_TRIGGER_GLOBAL_THREAD)
 	k_work_submit(&lis2dh->work);
 #endif
 	return 0;
@@ -185,6 +185,70 @@ static int lis2dh_start_trigger_int2(const struct device *dev)
 									LIS2DH_ANYM_CFG);
 }
 
+static int lis2dh_trigger_fifo_set(const struct device *dev,
+								   sensor_trigger_handler_t handler)
+{
+	struct lis2dh_data *lis2dh = dev->data;
+	int rc;
+
+	/* Set the handler no matter what */
+	lis2dh->handler_fifo = handler;
+
+	if (handler == NULL)
+	{
+		setup_int1(dev, false);
+
+		/* Disable actual interrupt */
+		rc = lis2dh->hw_tf->update_reg(dev, LIS2DH_REG_CTRL3,
+									   LIS2DH_EN_OVERRUN_INT1,
+									   0);
+		if (rc)
+			LOG_WRN("Unable to disable INT1. Err: %i", rc);
+
+		/* Disable FIFO interrupt */
+		rc = lis2dh->hw_tf->write_reg(dev, LIS2DH_REG_FIFO_CTRL, 0);
+		if (rc)
+			LOG_WRN("Unable to read FIFO src reg. Err: %i", rc);
+
+		/* Disable FIFO */
+		rc = lis2dh->hw_tf->update_reg(dev, LIS2DH_REG_CTRL5,
+									   LIS2DH_FIFO_EN,
+									   0);
+		if (rc)
+			LOG_WRN("Unable to disable FIFO. Err: %i", rc);
+	}
+	else
+	{
+		/* Enable FIFO */
+		rc = lis2dh->hw_tf->update_reg(dev, LIS2DH_REG_CTRL5,
+									   LIS2DH_FIFO_EN,
+									   LIS2DH_FIFO_EN);
+		if (rc)
+			LOG_WRN("Unable to enable FIFO. Err: %i", rc);
+
+		/* Enable FIFO complete INT  */
+		rc = lis2dh->hw_tf->write_reg(dev, LIS2DH_REG_FIFO_CTRL,
+									  (LIS2DH_FIFO_CTRL_MODE_FIFO << LIS2DH_FIFO_CTRL_MODE_SHIFT));
+		if (rc)
+			LOG_WRN("Unable to enable FIFO int. Err: %i", rc);
+
+		setup_int1(dev, true);
+
+		/* Clear the INT1 flags */
+		uint8_t val;
+		lis2dh->hw_tf->read_reg(dev, LIS2DH_REG_INT1_SRC, &val);
+
+		/* Enable actual interrupt */
+		rc = lis2dh->hw_tf->update_reg(dev, LIS2DH_REG_CTRL3,
+									   LIS2DH_EN_OVERRUN_INT1,
+									   LIS2DH_EN_OVERRUN_INT1);
+		if (rc)
+			LOG_WRN("Unable to enable overrun on INT1. Err: %i", rc);
+	}
+
+	return 0;
+}
+
 int lis2dh_trigger_set(const struct device *dev,
 					   const struct sensor_trigger *trig,
 					   sensor_trigger_handler_t handler)
@@ -197,6 +261,10 @@ int lis2dh_trigger_set(const struct device *dev,
 	else if (trig->type == SENSOR_TRIG_DELTA)
 	{
 		return lis2dh_trigger_anym_set(dev, handler);
+	}
+	else if (trig->type == (int)LIS2DH_SENSOR_TRIG_FIFO)
+	{
+		return lis2dh_trigger_fifo_set(dev, handler);
 	}
 
 	return -ENOTSUP;
@@ -271,9 +339,9 @@ static void lis2dh_gpio_int1_callback(const struct device *dev,
 
 	atomic_set_bit(&lis2dh->trig_flags, TRIGGED_INT1);
 
-#if defined(CONFIG_LIS2DH_TRIGGER_OWN_THREAD)
+#if defined(CONFIG_LIS2DH_ENHANCED_TRIGGER_OWN_THREAD)
 	k_sem_give(&lis2dh->gpio_sem);
-#elif defined(CONFIG_LIS2DH_TRIGGER_GLOBAL_THREAD)
+#elif defined(CONFIG_LIS2DH_ENHANCED_TRIGGER_GLOBAL_THREAD)
 	k_work_submit(&lis2dh->work);
 #endif
 }
@@ -288,9 +356,9 @@ static void lis2dh_gpio_int2_callback(const struct device *dev,
 
 	atomic_set_bit(&lis2dh->trig_flags, TRIGGED_INT2);
 
-#if defined(CONFIG_LIS2DH_TRIGGER_OWN_THREAD)
+#if defined(CONFIG_LIS2DH_ENHANCED_TRIGGER_OWN_THREAD)
 	k_sem_give(&lis2dh->gpio_sem);
-#elif defined(CONFIG_LIS2DH_TRIGGER_GLOBAL_THREAD)
+#elif defined(CONFIG_LIS2DH_ENHANCED_TRIGGER_GLOBAL_THREAD)
 	k_work_submit(&lis2dh->work);
 #endif
 }
@@ -331,6 +399,30 @@ static void lis2dh_thread_cb(const struct device *dev)
 		atomic_test_and_clear_bit(&lis2dh->trig_flags,
 								  TRIGGED_INT1))
 	{
+
+		/* Check for FIFO interrupt */
+		uint8_t val = 0;
+		status = lis2dh->hw_tf->read_reg(dev, LIS2DH_REG_FIFO_SRC, &val);
+		if (unlikely(status < 0))
+		{
+			LOG_ERR("Unable to get FIFO event source. Err: %i", status);
+		}
+		else if (val)
+		{
+
+			/* Send FIFO trigger event! */
+			struct sensor_trigger fifo_trigger = {
+				.type = LIS2DH_SENSOR_TRIG_FIFO,
+				.chan = SENSOR_CHAN_ACCEL_XYZ,
+			};
+
+			if (likely(lis2dh->handler_fifo != NULL))
+			{
+				lis2dh->handler_fifo(dev, &fifo_trigger);
+			}
+		}
+
+		/* Always send one of these if set */
 		struct sensor_trigger drdy_trigger = {
 			.type = SENSOR_TRIG_DATA_READY,
 			.chan = lis2dh->chan_drdy,
@@ -375,7 +467,7 @@ static void lis2dh_thread_cb(const struct device *dev)
 	}
 }
 
-#ifdef CONFIG_LIS2DH_TRIGGER_OWN_THREAD
+#ifdef CONFIG_LIS2DH_ENHANCED_TRIGGER_OWN_THREAD
 static void lis2dh_thread(struct lis2dh_data *lis2dh)
 {
 	while (1)
@@ -386,7 +478,7 @@ static void lis2dh_thread(struct lis2dh_data *lis2dh)
 }
 #endif
 
-#ifdef CONFIG_LIS2DH_TRIGGER_GLOBAL_THREAD
+#ifdef CONFIG_LIS2DH_ENHANCED_TRIGGER_GLOBAL_THREAD
 static void lis2dh_work_cb(struct k_work *work)
 {
 	struct lis2dh_data *lis2dh =
@@ -424,15 +516,15 @@ int lis2dh_init_interrupt(const struct device *dev)
 
 	lis2dh->dev = dev;
 
-#if defined(CONFIG_LIS2DH_TRIGGER_OWN_THREAD)
+#if defined(CONFIG_LIS2DH_ENHANCED_TRIGGER_OWN_THREAD)
 	k_sem_init(&lis2dh->gpio_sem, 0, K_SEM_MAX_LIMIT);
 
 	k_thread_create(&lis2dh->thread, lis2dh->thread_stack,
-					CONFIG_LIS2DH_THREAD_STACK_SIZE,
+					CONFIG_LIS2DH_ENHANCED_THREAD_STACK_SIZE,
 					(k_thread_entry_t)lis2dh_thread, lis2dh, NULL, NULL,
-					K_PRIO_COOP(CONFIG_LIS2DH_THREAD_PRIORITY), 0,
+					K_PRIO_COOP(CONFIG_LIS2DH_ENHANCED_THREAD_PRIORITY), 0,
 					K_NO_WAIT);
-#elif defined(CONFIG_LIS2DH_TRIGGER_GLOBAL_THREAD)
+#elif defined(CONFIG_LIS2DH_ENHANCED_TRIGGER_GLOBAL_THREAD)
 	lis2dh->work.handler = lis2dh_work_cb;
 #endif
 

@@ -44,7 +44,7 @@
 #define LIS2DH_ACCEL_XYZ_MASK BIT_MASK(3)
 
 #define LIS2DH_LP_EN_BIT_MASK BIT(3)
-#if defined(CONFIG_LIS2DH_OPER_MODE_LOW_POWER)
+#if defined(CONFIG_LIS2DH_ENHANCED_OPER_MODE_LOW_POWER)
 #define LIS2DH_LP_EN_BIT BIT(3)
 #else
 #define LIS2DH_LP_EN_BIT 0
@@ -60,23 +60,23 @@
 #define LIS2DH_ODR_8 8
 #define LIS2DH_ODR_9 9
 
-#if defined(CONFIG_LIS2DH_ODR_1)
+#if defined(CONFIG_LIS2DH_ENHANCED_ODR_1)
 #define LIS2DH_ODR_IDX LIS2DH_ODR_1
-#elif defined(CONFIG_LIS2DH_ODR_2)
+#elif defined(CONFIG_LIS2DH_ENHANCED_ODR_2)
 #define LIS2DH_ODR_IDX LIS2DH_ODR_2
-#elif defined(CONFIG_LIS2DH_ODR_3)
+#elif defined(CONFIG_LIS2DH_ENHANCED_ODR_3)
 #define LIS2DH_ODR_IDX LIS2DH_ODR_3
-#elif defined(CONFIG_LIS2DH_ODR_4) || defined(CONFIG_LIS2DH_ODR_RUNTIME)
+#elif defined(CONFIG_LIS2DH_ENHANCED_ODR_4) || defined(CONFIG_LIS2DH_ENHANCED_ODR_RUNTIME)
 #define LIS2DH_ODR_IDX LIS2DH_ODR_4
-#elif defined(CONFIG_LIS2DH_ODR_5)
+#elif defined(CONFIG_LIS2DH_ENHANCED_ODR_5)
 #define LIS2DH_ODR_IDX LIS2DH_ODR_5
-#elif defined(CONFIG_LIS2DH_ODR_6)
+#elif defined(CONFIG_LIS2DH_ENHANCED_ODR_6)
 #define LIS2DH_ODR_IDX LIS2DH_ODR_6
-#elif defined(CONFIG_LIS2DH_ODR_7)
+#elif defined(CONFIG_LIS2DH_ENHANCED_ODR_7)
 #define LIS2DH_ODR_IDX LIS2DH_ODR_7
-#elif defined(CONFIG_LIS2DH_ODR_8)
+#elif defined(CONFIG_LIS2DH_ENHANCED_ODR_8)
 #define LIS2DH_ODR_IDX LIS2DH_ODR_8
-#elif defined(CONFIG_LIS2DH_ODR_9_NORMAL) || defined(CONFIG_LIS2DH_ODR_9_LOW)
+#elif defined(CONFIG_LIS2DH_ENHANCED_ODR_9_NORMAL) || defined(CONFIG_LIS2DH_ENHANCED_ODR_9_LOW)
 #define LIS2DH_ODR_IDX LIS2DH_ODR_9
 #endif
 
@@ -92,25 +92,27 @@
 #define LIS2DH_REG_CTRL3 0x22
 #define LIS2DH_EN_DRDY1_INT1_SHIFT 4
 #define LIS2DH_EN_DRDY1_INT1 BIT(LIS2DH_EN_DRDY1_INT1_SHIFT)
+#define LIS2DH_EN_OVERRUN_INT1_SHIFT 1
+#define LIS2DH_EN_OVERRUN_INT1 BIT(LIS2DH_EN_OVERRUN_INT1_SHIFT)
 
 #define LIS2DH_REG_CTRL4 0x23
 #define LIS2DH_FS_SHIFT 4
 #define LIS2DH_FS_MASK (BIT_MASK(2) << LIS2DH_FS_SHIFT)
 
-#if defined(CONFIG_LIS2DH_ACCEL_RANGE_2G) || \
-	defined(CONFIG_LIS2DH_ACCEL_RANGE_RUNTIME)
+#if defined(CONFIG_LIS2DH_ENHANCED_ACCEL_RANGE_2G) || \
+	defined(CONFIG_LIS2DH_ENHANCED_ACCEL_RANGE_RUNTIME)
 #define LIS2DH_FS_IDX 0
-#elif defined(CONFIG_LIS2DH_ACCEL_RANGE_4G)
+#elif defined(CONFIG_LIS2DH_ENHANCED_ACCEL_RANGE_4G)
 #define LIS2DH_FS_IDX 1
-#elif defined(CONFIG_LIS2DH_ACCEL_RANGE_8G)
+#elif defined(CONFIG_LIS2DH_ENHANCED_ACCEL_RANGE_8G)
 #define LIS2DH_FS_IDX 2
-#elif defined(CONFIG_LIS2DH_ACCEL_RANGE_16G)
+#elif defined(CONFIG_LIS2DH_ENHANCED_ACCEL_RANGE_16G)
 #define LIS2DH_FS_IDX 3
 #endif
 
 #define LIS2DH_FS_SELECT(fs) ((fs) << LIS2DH_FS_SHIFT)
 #define LIS2DH_FS_BITS (LIS2DH_FS_SELECT(LIS2DH_FS_IDX))
-#if defined(CONFIG_LIS2DH_OPER_MODE_HIGH_RES)
+#if defined(CONFIG_LIS2DH_ENHANCED_OPER_MODE_HIGH_RES)
 #define LIS2DH_HR_BIT BIT(3)
 #else
 #define LIS2DH_HR_BIT 0
@@ -119,6 +121,8 @@
 #define LIS2DH_REG_CTRL5 0x24
 #define LIS2DH_LIR_INT2_SHIFT 1
 #define LIS2DH_EN_LIR_INT2 BIT(LIS2DH_LIR_INT2_SHIFT)
+#define LIS2DH_FIFO_EN_SHIFT 6
+#define LIS2DH_FIFO_EN BIT(LIS2DH_FIFO_EN_SHIFT)
 
 #define LIS2DH_REG_CTRL6 0x25
 #define LIS2DH_EN_INT2_INT2_SHIFT 5
@@ -145,7 +149,20 @@
 #define LIS2DH_REG_ACCEL_Y_MSB 0x2B
 #define LIS2DH_REG_ACCEL_Z_MSB 0x2D
 
+#define LIS2DH_REG_FIFO_CTRL 0x2e
+#define LIS2DH_FIFO_CTRL_MODE_SHIFT 6
+#define LIS2DH_FIFO_CTRL_MODE_BYPASS 0x00
+#define LIS2DH_FIFO_CTRL_MODE_FIFO 0x01
+#define LIS2DH_FIFO_CTRL_TR_SHIFT 5
+#define LIS2DH_FIFO_CTRL_TR BIT(LIS2DH_FIFO_CTRL_TR_SHIFT)
+
+#define LIS2DH_REG_FIFO_SRC 0x2f
+#define LIS2DH_REG_FIFO_SRC_OVRN_SHIFT 6
+#define LIS2DH_REG_FIFO_SRC_OVRN BIT(LIS2DH_REG_FIFO_SRC_OVRN_SHIFT)
+
 #define LIS2DH_REG_INT1_CFG 0x30
+#define LIS2DH_REG_INT1_SRC 0x31
+
 #define LIS2DH_REG_INT2_CFG 0x34
 #define LIS2DH_AOI_CFG BIT(7)
 #define LIS2DH_INT_CFG_ZHIE_ZUPE BIT(5)
@@ -162,7 +179,37 @@
 #define LIS2DH_REG_INT2_DUR 0x37
 
 /* sample buffer size includes status register */
-#define LIS2DH_BUF_SZ 7
+#define LIS2DH_SAMPLE_SZ 6
+#define LIS2DH_BUF_SZ 1 + LIS2DH_SAMPLE_SZ *LIS2DH_FIFO_COUNT
+#define LIS2DH_BUF_SINGLE_SZ 1 + LIS2DH_SAMPLE_SZ
+
+/* size of fifo buffer */
+#define LIS2DH_FIFO_COUNT 32
+
+/* Custom trigger */
+enum lis2dh_trigger_types
+{
+	LIS2DH_SENSOR_TRIG_FIFO = SENSOR_TRIG_PRIV_START,
+};
+
+/* Custom sensor channel */
+enum lis2dh_sensor_channel
+{
+	LIS2DH_SENSOR_CHAN_FIFO = SENSOR_CHAN_PRIV_START,
+};
+
+/* TODO: this */
+// struct lis2dh_xyz_data
+// {
+//     uint16_t x, y, z;
+// };
+
+// /* Fifo data */
+// union lis2dh_fifo_data
+// {
+//     uint8_t raw[6 * LIS2DH_FIFO_COUNT];
+//     struct lis2dh_xyz_data xyz[LIS2DH_FIFO_COUNT];
+// };
 
 union lis2dh_sample
 {
@@ -170,7 +217,7 @@ union lis2dh_sample
 	struct
 	{
 		uint8_t status;
-		int16_t xyz[3];
+		int16_t xyz[LIS2DH_FIFO_COUNT][3];
 	} __packed;
 };
 
@@ -198,10 +245,10 @@ struct lis2dh_config
 	const char *bus_name;
 	int (*bus_init)(const struct device *dev);
 	const union lis2dh_bus_cfg bus_cfg;
-#ifdef CONFIG_LIS2DH_TRIGGER
+#ifdef CONFIG_LIS2DH_ENHANCED_TRIGGER
 	const struct gpio_dt_spec gpio_drdy;
 	const struct gpio_dt_spec gpio_int;
-#endif /* CONFIG_LIS2DH_TRIGGER */
+#endif /* CONFIG_LIS2DH_ENHANCED_TRIGGER */
 	bool is_lsm303agr_dev;
 	bool disc_pull_up;
 };
@@ -229,25 +276,26 @@ struct lis2dh_data
 	/* current scaling factor, in micro m/s^2 / lsb */
 	uint32_t scale;
 
-#ifdef CONFIG_LIS2DH_TRIGGER
+#ifdef CONFIG_LIS2DH_ENHANCED_TRIGGER
 	const struct device *dev;
 	struct gpio_callback gpio_int1_cb;
 	struct gpio_callback gpio_int2_cb;
 
 	sensor_trigger_handler_t handler_drdy;
 	sensor_trigger_handler_t handler_anymotion;
+	sensor_trigger_handler_t handler_fifo;
 	atomic_t trig_flags;
 	enum sensor_channel chan_drdy;
 
-#if defined(CONFIG_LIS2DH_TRIGGER_OWN_THREAD)
-	K_KERNEL_STACK_MEMBER(thread_stack, CONFIG_LIS2DH_THREAD_STACK_SIZE);
+#if defined(CONFIG_LIS2DH_ENHANCED_TRIGGER_OWN_THREAD)
+	K_KERNEL_STACK_MEMBER(thread_stack, CONFIG_LIS2DH_ENHANCED_THREAD_STACK_SIZE);
 	struct k_thread thread;
 	struct k_sem gpio_sem;
-#elif defined(CONFIG_LIS2DH_TRIGGER_GLOBAL_THREAD)
+#elif defined(CONFIG_LIS2DH_ENHANCED_TRIGGER_GLOBAL_THREAD)
 	struct k_work work;
 #endif
 
-#endif /* CONFIG_LIS2DH_TRIGGER */
+#endif /* CONFIG_LIS2DH_ENHANCED_TRIGGER */
 
 #if DT_ANY_INST_ON_BUS_STATUS_OKAY(spi)
 	struct spi_cs_control cs_ctrl;
@@ -259,7 +307,7 @@ int lis2dh_spi_access(struct lis2dh_data *ctx, uint8_t cmd,
 					  void *data, size_t length);
 #endif
 
-#ifdef CONFIG_LIS2DH_TRIGGER
+#ifdef CONFIG_LIS2DH_ENHANCED_TRIGGER
 int lis2dh_trigger_set(const struct device *dev,
 					   const struct sensor_trigger *trig,
 					   sensor_trigger_handler_t handler);
